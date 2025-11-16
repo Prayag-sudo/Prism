@@ -22,7 +22,7 @@ struct ContentView: View {
     let scrollThreshold: CGFloat = 100
 
     // Layout constants
-    let horizontalPadding: CGFloat = 190
+    let horizontalPadding: CGFloat = 200
     let gridTopSpacing: CGFloat = 40
     
     //splash animations constants

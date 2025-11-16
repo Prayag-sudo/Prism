@@ -1,0 +1,110 @@
+{
+  "fill" : {
+    "linear-gradient" : [
+      "display-p3:0.26978,0.33228,0.82275,1.00000",
+      "display-p3:0.43066,0.47754,0.86572,1.00000"
+    ],
+    "orientation" : {
+      "start" : {
+        "x" : 0.5,
+        "y" : 0
+      },
+      "stop" : {
+        "x" : 0.5,
+        "y" : 0.7
+      }
+    }
+  },
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "image-name" : "V@-4.svg",
+          "name" : "V@-4",
+          "opacity" : 1,
+          "position" : {
+            "scale" : 1.2,
+            "translation-in-points" : [
+              -237.89854015544654,
+              -265.9809045462699
+            ]
+          }
+        },
+        {
+          "image-name" : "V@-4.svg",
+          "name" : "V@-4",
+          "opacity" : 1,
+          "position" : {
+            "scale" : 1.2,
+            "translation-in-points" : [
+              -516.1359454328867,
+              -1.9402902983990202
+            ]
+          }
+        },
+        {
+          "image-name" : "V@-4.svg",
+          "name" : "V@-4",
+          "opacity" : 1,
+          "position" : {
+            "scale" : 1.2,
+            "translation-in-points" : [
+              -237.89854015544643,
+              265.98404060652865
+            ]
+          }
+        },
+        {
+          "image-name" : "V@-4.svg",
+          "name" : "V@-4",
+          "opacity" : 1,
+          "position" : {
+            "scale" : 1.2,
+            "translation-in-points" : [
+              37.16127876621999,
+              -1.9402902983990202
+            ]
+          }
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    },
+    {
+      "layers" : [
+        {
+          "glass" : true,
+          "image-name" : "V@-3.svg",
+          "name" : "V@-3",
+          "position" : {
+            "scale" : 2,
+            "translation-in-points" : [
+              6.460000000000036,
+              -1.1368683772161603e-13
+            ]
+          }
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}

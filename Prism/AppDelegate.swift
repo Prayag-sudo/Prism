@@ -10,7 +10,7 @@ import Carbon
 import HotKey
 
 class AppDelegate: NSObject, NSApplicationDelegate {
-    private let animationDuration: TimeInterval = 0.25
+    private let animationDuration: TimeInterval = 0.2
     private var statusItem: NSStatusItem?
     private var hotKey: HotKey?
     private var settingsWindow: NSWindow?

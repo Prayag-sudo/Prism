@@ -45,6 +45,7 @@ struct ContentView: View {
     @AppStorage("invertScroll") private var invertScroll: Bool = false
     @AppStorage("IconSizeConstant") private var IconSizeConstant: Double = 0.09936
     @AppStorage("InterItemSpacingConstant") private var InterItemSpacingConstant: Double = 0.0361
+    @AppStorage("persistedAppOrder") private var persistedAppOrder: Data = Data()
 
     private var columns: Int { 7 }
     private var rows: Int { max(1, appsPerPage / columns) }
@@ -143,7 +144,7 @@ struct ContentView: View {
         }
         // MARK: - .onAppear
         .onAppear {
-            contents = AppFetcher.getContents(in: currentFolder)
+            loadPersistedApps()
             shouldAnimatePageChange = false
             currentPage = 0
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -209,14 +210,10 @@ struct ContentView: View {
     }
     
     func resetPrismSession() {
-        print("🔁 Resetting Prism session")
-        contents.removeAll()
+        print("🔁 Resetting Prism session (UI only)")
         currentPage = 0
         folderStack.removeAll()
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-            contents = AppFetcher.getContents(in: URL(fileURLWithPath: "/Applications"))
-        }
+        loadPersistedApps()
     }
 
     func lockScrollTemporarily() {
@@ -275,6 +272,38 @@ struct ContentView: View {
         updated.insert(from, at: toIndex)
 
         contents = updated
+        savePersistedApps()
+    }
+    
+    func loadPersistedApps() {
+        if let decoded = try? JSONDecoder().decode([URL].self, from: persistedAppOrder),
+           !decoded.isEmpty {
+            contents = decoded
+        } else {
+            contents = AppFetcher.getContents(in: currentFolder)
+            savePersistedApps()
+        }
+    }
+
+    func savePersistedApps() {
+        if let encoded = try? JSONEncoder().encode(contents) {
+            persistedAppOrder = encoded
+        }
+    }
+    
+    final class IconCache {
+        static let shared = IconCache()
+        private var cache: [String: NSImage] = [:]
+
+        func icon(for url: URL) -> NSImage {
+            if let cached = cache[url.path] {
+                return cached
+            }
+
+            let icon = NSWorkspace.shared.icon(forFile: url.path)
+            cache[url.path] = icon
+            return icon
+        }
     }
     
     
@@ -337,11 +366,10 @@ struct ContentView: View {
                             )
                             .onTapGesture {
                                 if item.pathExtension == "app" {
+                                    NotificationCenter.default.post(name: .prismEscapePressed, object: nil)
                                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.15){
                                         NSWorkspace.shared.open(item)
                                     }
-                                    NotificationCenter.default.post(name: .prismEscapePressed, object: nil)
-                                    
                                 }
                             }
                     }
@@ -362,7 +390,7 @@ struct ContentView: View {
 
         func iconView(for item: URL) -> some View {
             VStack(spacing: 6) {
-                Image(nsImage: NSWorkspace.shared.icon(forFile: item.path))
+                Image(nsImage: IconCache.shared.icon(for: item))
                     .resizable()
                     .scaledToFit()
                     .frame(width: iconSize, height: iconSize)

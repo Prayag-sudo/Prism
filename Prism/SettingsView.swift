@@ -11,14 +11,13 @@ struct SettingsView: View {
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 10)
-                .fill(.ultraThinMaterial)
+                .fill(.background)
                 .ignoresSafeArea()
                 
 
             VStack(alignment: .leading, spacing: 20) {
                 HStack {
                     Spacer()
-                    
                     .buttonStyle(PlainButtonStyle())
                     .padding(.trailing, 10)
                 }

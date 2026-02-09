@@ -2,6 +2,8 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
+    
+    @State private var showResetAlert = false
 
     @AppStorage("appsPerPage") private var appsPerPage: Int = 35
     @AppStorage("invertScroll") private var invertScroll: Bool = false
@@ -47,6 +49,22 @@ struct SettingsView: View {
 
                 Toggle("Invert Scroll Direction", isOn: $invertScroll)
                     .padding(.horizontal)
+                
+                Button(role: .destructive) {
+                    showResetAlert = true
+                } label: {
+                    Text("Reset App Layout")
+                        .frame(maxWidth: .infinity)
+                }
+                .padding(.horizontal)
+                .alert("Reset App Layout?", isPresented: $showResetAlert) {
+                    Button("Reset", role: .destructive) {
+                        NotificationCenter.default.post(name: .prismResetLayout, object: nil)
+                    }
+                    Button("Cancel", role: .cancel) { }
+                } message: {
+                    Text("This will reset all app positions to the default layout. This cannot be undone.")
+                }
 
                 Spacer()
             }

@@ -190,6 +190,11 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .resetPrismSession)) { _ in
             resetPrismSession()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .prismResetLayout)) { _ in
+            persistedAppOrder = Data()
+            loadPersistedApps()
+            currentPage = 0
+        }
         .frame(minWidth: 800, minHeight: 500)
     }
 
@@ -276,13 +281,21 @@ struct ContentView: View {
     }
     
     func loadPersistedApps() {
-        if let decoded = try? JSONDecoder().decode([URL].self, from: persistedAppOrder),
-           !decoded.isEmpty {
-            contents = decoded
-        } else {
-            contents = AppFetcher.getContents(in: currentFolder)
-            savePersistedApps()
-        }
+        let systemApps = AppFetcher.getContents(in: currentFolder)
+
+        // Decode saved order if it exists
+        let savedOrder = (try? JSONDecoder().decode([URL].self, from: persistedAppOrder)) ?? []
+
+        // Keep only apps that still exist
+        let existingApps = savedOrder.filter { systemApps.contains($0) }
+
+        // Detect newly installed apps
+        let newApps = systemApps.filter { !existingApps.contains($0) }
+
+        // NEW APPS GO FIRST
+        contents = newApps + existingApps
+
+        savePersistedApps()
     }
 
     func savePersistedApps() {

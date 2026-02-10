@@ -12,5 +12,6 @@ extension Notification.Name {
     static let resetPrismSession = Notification.Name("resetPrismSession")
     static let prismEscapePressed = Notification.Name("prismEscapePressed")
     static let prismResetLayout = Notification.Name("prismResetLayout")
+    static let prismDrop = Notification.Name("prismDrop")
     
 }

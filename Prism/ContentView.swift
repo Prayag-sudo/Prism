@@ -9,6 +9,11 @@ struct ContentView: View {
     @GestureState private var dragOffset: CGFloat = 0
     @State private var finalDragOffset: CGFloat = 0
     @State private var shouldAnimatePageChange: Bool = true
+    @State private var saveWorkItem: DispatchWorkItem?
+    
+    @State private var draggingItem: URL? = nil
+    @State private var dragPosition: CGPoint = .zero
+    @State private var iconFrames: [URL: CGRect] = [:]
 
     @State private var isHoveringLeft = false
     @State private var isHoveringRight = false
@@ -29,6 +34,7 @@ struct ContentView: View {
     let bigToSmall: Bool = true
     let iconBig: CGFloat = 1.5
     let springCushion: CGFloat = 0.4
+    let DEBUG_DRAG = true
 
     private var screenPoints: CGSize { screenSizeFetcher() }
 
@@ -55,6 +61,13 @@ struct ContentView: View {
             Array(contents[$0..<min($0 + appsPerPage, contents.count)])
         }
     }
+    
+    struct PrismDropPayload {
+        let fromLocalIndex: Int    // 0 ... appsPerPage-1
+        let toLocalIndex: Int      // 0 ... appsPerPage-1
+        let startPage: Int
+        let endPage: Int
+    }
 
     var body: some View {
         GeometryReader { geometry in
@@ -72,7 +85,11 @@ struct ContentView: View {
                                 horizontalPadding: horizontalPadding,
                                 startupBounce: startupBounce,
                                 iconBig: iconBig,
-                                springCushion: springCushion
+                                springCushion: springCushion,
+                                DEBUG_DRAG: DEBUG_DRAG,
+                                draggingItem: $draggingItem,
+                                dragPosition: $dragPosition,
+                                iconFrames: $iconFrames
                             )
                             .frame(width: pageWidth)
                         }
@@ -177,15 +194,37 @@ struct ContentView: View {
         }
         
         .onReceive(NotificationCenter.default.publisher(for: .prismMoveApp)) { note in
-            if let from = (note.userInfo?["from"] as? URL),
-               let to = (note.userInfo?["to"] as? URL) {
-                var tilrep: Bool = true
-                if tilrep {
-                    moveApp(from: from, to: to)
-                    print("\(from) \(to)")
-                }
-                tilrep.toggle()
+            guard
+                let fromItem = note.userInfo?["fromItem"] as? URL,
+                let toItem = note.userInfo?["toItem"] as? URL,
+                let fromIndex = contents.firstIndex(of: fromItem),
+                let rawToIndex = contents.firstIndex(of: toItem)
+            else { return }
+
+            let startPage = fromIndex / appsPerPage
+            let endPage = currentPage
+
+            let localDropIndex = rawToIndex % appsPerPage
+            var targetIndex = endPage * appsPerPage + localDropIndex
+
+            // Clamp for safety
+            targetIndex = min(max(targetIndex, 0), contents.count - 1)
+
+            if DEBUG_DRAG {
+                print("🔵 REORDER COMPUTED")
+                print("   startPage:", startPage)
+                print("   endPage:", endPage)
+                print("   fromIndex:", fromIndex)
+                print("   rawToIndex:", rawToIndex)
+                print("   localDropIndex:", localDropIndex)
+                print("   targetIndex:", targetIndex)
             }
+
+            withAnimation(.none) {
+                moveItem(from: fromIndex, to: targetIndex)
+            }
+
+            scheduleSavePersistedApps()
         }
         .onReceive(NotificationCenter.default.publisher(for: .resetPrismSession)) { _ in
             resetPrismSession()
@@ -304,6 +343,39 @@ struct ContentView: View {
         }
     }
     
+    func globalIndex(for localIndex: Int, page: Int) -> Int {
+        return page * appsPerPage + localIndex
+    }
+    
+    func scheduleSavePersistedApps() {
+        saveWorkItem?.cancel()
+
+        let workItem = DispatchWorkItem {
+            if let encoded = try? JSONEncoder().encode(contents) {
+                persistedAppOrder = encoded
+            }
+        }
+
+        saveWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: workItem)
+    }
+    
+    func currentPageItems() -> [URL] {
+        let start = currentPage * appsPerPage
+        let end = min(start + appsPerPage, contents.count)
+        return Array(contents[start..<end])
+    }
+    
+    func moveItem(from fromIndex: Int, to toIndex: Int) {
+        guard fromIndex != toIndex else { return }
+
+        let item = contents[fromIndex]
+        contents.remove(at: fromIndex)
+
+        let adjustedIndex = toIndex > fromIndex ? toIndex - 1 : toIndex
+        contents.insert(item, at: adjustedIndex)
+    }
+    
     final class IconCache {
         static let shared = IconCache()
         private var cache: [String: NSImage] = [:]
@@ -333,10 +405,11 @@ struct ContentView: View {
         let startupBounce: Bool
         let iconBig: CGFloat
         let springCushion: CGFloat
+        let DEBUG_DRAG: Bool
 
-        @State private var draggingItem: URL? = nil
-        @State private var dragPosition: CGPoint = .zero
-        @State private var iconFrames: [URL: CGRect] = [:]
+        @Binding var draggingItem: URL?
+        @Binding var dragPosition: CGPoint
+        @Binding var iconFrames: [URL: CGRect]
 
         var body: some View {
             ZStack {
@@ -344,32 +417,53 @@ struct ContentView: View {
                     columns: Array(repeating: GridItem(.flexible(), spacing: interItemSpacing), count: columns),
                     spacing: interItemSpacing
                 ) {
-                    ForEach(items, id: \.self) { item in
+                    ForEach(Array(items.enumerated()), id: \.element) { localIndex, item in
                         iconView(for: item)
                             .opacity(draggingItem == item ? 0.0 : 1.0)
                             .simultaneousGesture(
                                 DragGesture(minimumDistance: 5)
-                                    .onChanged { value in
+                                    .onChanged { _ in
                                         if draggingItem == nil {
                                             draggingItem = item
+                                            if DEBUG_DRAG {
+                                                print("🟡 DRAG START:", item.lastPathComponent)
+                                            }
                                         }
+
                                         if let screen = NSScreen.main {
-                                            let mousePoint = NSEvent.mouseLocation
-                                            let flippedY = screen.frame.height - mousePoint.y
-                                            dragPosition = CGPoint(x: mousePoint.x, y: flippedY)
+                                            let mouse = NSEvent.mouseLocation
+                                            let flippedY = screen.frame.height - mouse.y
+                                            dragPosition = CGPoint(x: mouse.x, y: flippedY)
+
+                                            if DEBUG_DRAG {
+                                                print("🟡 DRAG START:", item.lastPathComponent)
+                                                print("🟡 DRAG MOVE:", item.lastPathComponent,
+                                                      "x:", Int(mouse.x),
+                                                      "y:", Int(flippedY))
+                                            }
                                         }
                                     }
                                     .onEnded { _ in
+                                        if DEBUG_DRAG, let dragged = draggingItem {
+                                            print("🟢 DROP ATTEMPT:", dragged.lastPathComponent)
+                                        }
                                         if let dragged = draggingItem {
                                             let drop = dragPosition
 
                                             if let closest = iconFrames.min(by: {
                                                 distance($0.value.center, drop) < distance($1.value.center, drop)
-                                            }), closest.key != dragged {
+                                            }) {
+                                                if DEBUG_DRAG {
+                                                    print("🟢 DROP TARGET:", closest.key.lastPathComponent)
+                                                }
+
                                                 NotificationCenter.default.post(
                                                     name: .prismMoveApp,
                                                     object: nil,
-                                                    userInfo: ["from": dragged, "to": closest.key]
+                                                    userInfo: [
+                                                        "fromItem": dragged,
+                                                        "toItem": closest.key
+                                                    ]
                                                 )
                                             }
                                         }
@@ -400,6 +494,8 @@ struct ContentView: View {
                 }
             }
         }
+        
+        
 
         func iconView(for item: URL) -> some View {
             VStack(spacing: 6) {
